@@ -1,7 +1,429 @@
-# x. Java反射原理
-本来Java反射原理不在Spring知识体系中，但是Java框架中反射是一个十分常用而且重要的技术，在Spring中就大量使用了反射。如果只是简单的学习了Spring的原理和使用方法，不去深入探究其内部原理的话，那么永远只能是一个使用者。  
-Spring的AOP中就使用了动态代理，这是一个叫做代理模式的设计模式的改进。在其中也是用了Java反射技术。  
+2017/8/13 14:47:59   
 
-# 静态代理
+![反射](https://github.com/StephenHuge/Markdown_Pic/blob/master/Reflection%20&%20Proxy/reflection_top.jpg?raw=true)
 
-#动态代理
+# 1. 为什么要学习Java反射机制
+Java中反射是一个很重要的知识点，在许多框架中都用到了反射机制，例如Spring、Hibernate、SpringMVC等，所以这篇文章就反射机制进行简单复习。  
+本来Java反射原理不在Spring知识体系中，但是在Spring中大量使用了反射机制。如果只是简单的学习了Spring的原理和使用方法，不去深入探究其内部原理的话，那么永远只能是一个使用者。Spring的AOP中就使用了动态代理，这是一个叫做代理模式的设计模式的改进。在后面会有较为详细的解释。  
+仍然需要强调的是，文章只是对自己所学知识的一个梳理总结和记录，所以不会像书一样事无巨细，仅供参考。  
+
+# 2. 什么是Java反射机制
+举个简单的例子来说明：如果我们已经有一个类`Person` ，那么就可以通过这个类来创建一个`Person`类的对象`xiaoMing`；
+
+```
+    Person xiaoMing = new Person(); //通过Person默认构造器创建一个对象xiaoMing
+```
+
+那么反过来，我们现在有一个对象`xiaoMing` ，能不能反过来通过这个对象来获取相对应类的信息呢？
+答案是肯定的，Java为我们提供了这样的一个工具，这就是反射机制。最简单的就是获取`xiaoMing` 对应的类：
+
+```
+    Class<?> clazz = xiaoMing.getClass();
+```
+## 2.1 什么是Class类
+
+这里的Class类是什么呢？我们来直接看源代码中的注释：
+> 
+ Instances of the class {@code Class} represent classes and
+ interfaces in a running Java application.  An enum is a kind of
+ class and an annotation is a kind of interface.  Every array also
+ belongs to a class that is reflected as a {@code Class} object
+ that is shared by all arrays with the same element type and number
+ of dimensions.  The primitive Java types ({@code boolean},
+  {@code byte}, {@code char}, {@code short},
+  {@code int}, {@code long}, {@code float}, and
+ {@code double}), and the keyword {@code void} are also
+ represented as {@code Class} objects.
+ <p> {@code Class} has no public constructor. Instead {@code Class}
+ objects are constructed automatically by the Java Virtual Machine as classes
+ are loaded and by calls to the {@code defineClass} method in the class
+ loader.
+ <p> The following example uses a {@code Class} object to print the
+ class name of an object:
+ <blockquote><pre>
+      void printClassName(Object obj) {
+          System.out.println("The class of " + obj +
+                             " is " + obj.getClass().getName());
+      }
+  </pre></blockquote>
+ > <p> It is also possible to get the {@code Class} object for a named
+  type (or for void) using a class literal.  See Section 15.8.2 of
+  <cite>The Java&trade; Language Specification</cite>.
+  For example:
+  <blockquote>
+      {@code System.out.println("The name of class Foo is: "+Foo.class.getName());}
+  </blockquote>
+简单的翻译一下：  
+Class类的实例代表的是在运行的Java程序中的类和接口， 枚举算是一个类，而注解算是一个接口。 每个数组也会对应一个Class类，这个类通过反射生成一个`Class`对象，所有维度、类型和数组长度相同的数组都会共享这个`Class`对象。 基本数据类型如 `boolean`, `byte`, `char`, `short`, `int`, `long`, `float`和`double`， 还有关键字`void`都对应一个`Class`类的对象。  
+`Class`类没有`public` 修饰的构造器，代替它的是: 当类被类加载器（class loader）加载和调用它的类加载器的`defineClass()`方法时，Java虚拟机会自动生成`Class`类的对象。
+下面的例子使用`Class`对象打印`Object`对象`obj`的类名。
+<blockquote><pre>
+      void printClassName(Object obj) {
+          System.out.println("The class of " + obj +
+                             " is " + obj.getClass().getName());
+      }
+  </pre></blockquote>
+
+其中类加载的定义是： 通过一个类的全限定名来获取描述此类的二进制字节流。  
+这个动作放在Java虚拟机外部去实现，以便让应用程序自己决定如何去获取所需要的类，实现这个动作的代码模块成为“类加载器”。
+
+<!-- 
+个人理解：  
+Java是一个面向对象编程的语言，“万物皆对象”，所以Java中每个操作的基础单位都是对象。  
+类的实例对象好理解，我们通过类的构造方法创建一个新的对象，然后通过对象名进行调用变量或者方法，或者把对象名传入其它方法；  
+那么每个类本身呢？静态方法是可以直接通过类名调用的，这些类是不是对象呢？答案是肯定的，其实这些类也是一个对象，只不过特殊一点，它们对应的类是`Class`类（`java.lang.Class`），它们都是`java.lang.Class`的对象。  
+这个`Class`类Java已经定义好了，我觉得它就类似一个"模板"，当某个类，例如：`Person`类被类加载器加载或者在调用它的类加载器的`defineClass()`方法时，Java虚拟机就会依照这个模板创建一个`Class`类的对象：`Person.class`，`Person.class`可以调用`Class`类中声明的各种方法。  
+类和对象之间的关系用图表示为：  <center>![Class类的关系](https://github.com/StephenHuge/Markdown_Pic/blob/master/Reflection%20&%20Proxy/Class%E7%B1%BB%E7%9A%84%E5%85%B3%E7%B3%BB.jpg?raw=true)
+图1 Class类与对象之间的关系
+</center>
+
+图中需要注意的是：每个Class类的实例也是对象。所有对象，包括正常类的对象和Class类的对象都可以使用`getClass()`方法获取其对应的类。这里的正常类指的是除java.lang.Class类之外的Java系统带的类以及我们自定义的类，下面用代码演示一下。  
+
+        Person xiaoMing = new Person(); //这是一个自定义类Person的对象
+        String str = new String("周杰伦")； //这是一个系统自带类String的对象
+        Class<?> person = Person.class; //这是一个Class类的对象
+        Class<?> clazz = Person.class.getClass();   //这是一个Class类自身对应的对象
+        
+        System.out.println(xiaoMing instanceof Object); //true
+        System.out.println(str instanceof Object); //true
+        System.out.println(person instanceof Object); //true
+        System.out.println(clazz instanceof Object); //true
+          
+其中的`instanceof` 运算符是用来在运行时指出对象是否是特定类的一个实例。`instanceof`通过返回一个布尔值来指出，这个对象是否是这个特定类或者是它的子类的一个实例。  
+打印结果是四个`true`，证明这四个都是Object类型。  -->
+
+## 2.2 Class类的用法
+Class类的一般用法是对对象进行实例化。通过全类名获得具体Class类的实例，之后通过构造函数实例化对象。看代码：  
+Person类：
+
+        package com.aop.reflection;
+        
+        public class Person {
+        
+            private int age;
+            private String name;
+            
+            public Person() {
+            }
+            public Person(int age, String name) {
+                this.age = age;
+                this.name = name;
+            }
+            @Override
+            public String toString() {
+                return "Person [age=" + age + ", name=" + name + "]";
+            }
+            public int getAge() {
+                return age;
+            }
+            public void setAge(int age) {
+                this.age = age;
+            }
+            public String getName() {
+                return name;
+            }
+            public void setName(String name) {
+                this.name = name;
+            }
+        }
+
+MyReflectionTest.java:  
+    
+        import org.junit.Test;
+        public class MyReflectionTest {
+            @Test
+            public void testClassUse {
+                Class<?> person = Class.forName("com.aop.reflection.Person");
+                Person xiaoMing = (Person) person.newInstance();
+            }
+        }
+    
+打印结果为：  
+
+    Person [age=0, name=null]
+证明反射创建实例成功。
+# 3. 反射的应用-取得类的结构
+下面是通过反射获取类中结构的细节，不必全部记住，只需要有印象即可。其中获取方法以及获取注解是比较重要的内容，会在后面框架中有较为广泛的应用。  
+需要使用到java.lang.reflect包中的以下几个类：  
+Constructor: 表示类中的构造方法  
+Field： 表示类中的属性  
+Method： 表示类中的方法
+## 3.1 取得所实现的全部接口
+要获取到一个类所实现的所有接口用到的方法是Class类中的getInterfaces()方法。
+    
+    public Class[] getInterfaces()
+    
+我们用ArrayList类进行测试，具体代码为：
+
+        ...
+        @Test
+        public void testGetInterfaces() {
+            Class<?> arrayList = Class.forName("java.util.ArrayList");
+    		
+    		Class<?>[] interfaces = arrayList.getInterfaces();
+    		
+    		for(Class<?> in : interfaces) {
+    			System.out.println(in.getName());
+    		}
+        
+        }
+        ...
+    
+打印结果为：  
+
+    java.util.List
+    java.util.RandomAccess
+    java.lang.Cloneable
+    java.io.Serializable
+## 3.2 取得父类
+获取父类的方法是Class类的getSuperClass()。
+    
+        @Test
+        public void testGetSuperClass() throws Exception {
+            Class<?> arrayList = Class.forName("java.util.ArrayList");
+            
+            Class<?> superClass = arrayList.getSuperclass();
+            
+            while(superClass != null) {
+                System.out.println(superClass);
+                superClass = superClass.getSuperclass();
+            }
+        }
+        
+打印结果为：
+
+    class java.util.AbstractList
+    class java.util.AbstractCollection
+    class java.lang.Object
+## 3.3 取得全部构造方法
+getConstructors()方法。
+
+        @Test
+    	public void testGetConstructors() throws Exception {
+    		Class<?> person = Class.forName("com.aop.reflection.Person");
+    		
+    		Constructor<?>[] constructors = person.getConstructors();
+    	
+    		for (Constructor<?> constructor : constructors) {
+    			System.out.println(constructor);
+    		}
+    	}
+
+打印结果为：  
+
+    public com.aop.reflection.Person(int,java.lang.String)
+    public com.aop.reflection.Person()
+    
+Constructor类中还有方法获取构造方法的修饰符：
+
+    public int getModifier()
+和获取其参数列表  
+
+    public Class<?>[] getParameterTypes()
+    
+不再一一测试。
+## 3.4 取得全部方法
+方法getMethods()。
+Method类中的方法有：
+
+    public int getModifiers()
+    public String getName()
+    public Class<?>[] getParametersTypes()
+    public Class<?> getReturnType()
+    public Class<?>[] getExceptions()
+    
+    public Object invork(Object obj, Object... args)
+            throws IllegalAccessException, IllegalArgumentException, InvocationTargetException
+    
+其中比较重要的方法是invork()方法。会在后面用到。
+
+        @Test
+    	public void testMethods() throws ClassNotFoundException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, InstantiationException {
+    		Class<?> person = Class.forName("com.aop.reflection.Person");
+    		
+    		Method[] methods = person.getMethods();
+    		
+    		Person p = (Person) person.newInstance();
+    		
+    		for (Method method : methods) {
+    			System.out.print(method.getName() + " ");
+    			
+    			if (method.getName() == "setAge") {
+    				method.invoke(p, 14);
+    			}
+    			if (method.getName() == "setName") {
+    				method.invoke(p, "xiaoMing");
+    			}
+    		}
+    		System.out.println();
+    		System.out.println(p);
+    	}
+
+打印结果为：
+
+    equals toString hashCode getName setName setAge getAge wait wait wait getClass notify notifyAll 
+    Person(age=14, name=xiaoMing)
+
+## 3.5 取得全部属性
+这其中有几个方法： getFields()，getDeclaredFields()，分别是获取类中的公共属性和获取其中所有的属性。
+Field类中有set(Object obj, Object value)方法和setAccessible(boolean flag)方法，分别是设置属性的值以及设置属性值是否可以被外部访问。
+
+        @Test
+    	public void testFields() throws Exception {
+    		Class<?> person = Class.forName("com.aop.reflection.Person");
+    		
+    		Person p = (Person) person.newInstance();
+    		
+    		Field[] fields = person.getFields();
+    		
+    		for (Field field : fields) {
+    			System.out.println(field);	//为空，因为这个方法只能获取到修饰符为public 的属性
+    		}
+    		
+    		fields = person.getDeclaredFields();
+    		for (Field field : fields) {
+    			if(field.getName() == "age") {
+    				operateField(p, field, 20);
+    			}
+    			
+    			if(field.getName() == "name") {
+    				operateField(p, field, "LiHua");
+    			}
+    		}
+    		System.out.println(p);
+    	}
+    	public static Field operateField(Object obj, Field field, Object value) throws Exception {
+    		field.setAccessible(true);
+    		field.set(obj, value);
+    		System.out.println(field.getName() + ": " + field.get(obj));
+    		return field;
+    	}
+    	
+打印结果为:
+
+    age: 20
+    name: LiHua
+    Person(age=20, name=LiHua)
+
+
+## 3.6 取得全部注解
+这是比较重要的一部分，因为在Java框架中有很大一部分的配置都使用到了注解进行配置。
+先新建一个注解MyEntry.java，其中有两个值key 和 value
+
+        package com.aop.reflection;
+
+        import java.lang.annotation.ElementType;
+        import java.lang.annotation.Retention;
+        import java.lang.annotation.RetentionPolicy;
+        import java.lang.annotation.Target;
+        
+        @Retention(value=RetentionPolicy.RUNTIME)	//设置注解有效范围
+        //@Target(value=ElementType.METHOD)			//设置注解使用范围
+        public @interface MyEntry {
+        	String key() default "";
+        	String value();
+        }
+
+再创建一个POJO类User：  
+
+        package com.aop.reflection;
+
+        public class User {
+        	private String name;
+        	private String password;
+        	
+        	public User() {
+        	}
+        	
+        	@MyEntry(key="张三", value="zhangsan")
+        	public User(String name, String password) {
+        		this.name = name;
+        		this.password = password;
+        	}
+        	
+        	@MyEntry(key="李四", value="lisi")
+        	public void set(String name, String password) {
+        		this.name = name;
+        		this.password = password;
+        	}
+        	
+        	@Override
+        	public String toString() {
+        		return "User [name=" + name + ", password=" + password + "]";
+        	}
+        	public String getName() {
+        		return name;
+        	}
+        	public void setName(String name) {
+        		this.name = name;
+        	}
+        	public String getPassword() {
+        		return password;
+        	}
+        	public void setPassword(String password) {
+        		this.password = password;
+        	}
+        }
+
+测试方法（模拟Spring通过注解方式配置bean）:  
+
+        @Test
+    	public void testGetAnnotations() throws Exception {
+    		Class<?> user = Class.forName("com.aop.reflection.User");
+    
+    		User zhangSan = (User) user.newInstance();
+    
+    		Method setName = user.getMethod("setName", String.class);	//获取user的setName方法
+    		Method setPassword = user.getMethod("setPassword", String.class);	//获取user的setPassword方法
+    
+    		Constructor<?> constr = user.getConstructor(String.class, String.class);
+    		Method setMethod = user.getMethod("set", String.class, String.class);
+    
+    		//Annotation[] annos1 = constr.getAnnotations();	//获取带参数构造方法上所有的注解
+    		//Annotation[] annos2 = setMethod.getAnnotations();	//获取set方法上所有的注解
+    
+    		//使用构造方法注入属性
+    		if(constr.isAnnotationPresent(MyEntry.class)) {	//判断如果带参数构造方法上有注解@MyEntry
+    
+    			MyEntry me = constr.getAnnotation(MyEntry.class);	//获取带参数构造方法上的@MyEntry注解以及其中的值
+    
+    			String key = me.key();
+    			String value = me.value();
+                
+                //注入属性
+    			setName.invoke(zhangSan, key);
+    			setPassword.invoke(zhangSan, value);
+    			
+    			System.out.println(zhangSan);
+    		}
+    		//使用set方法注入属性
+    		if(setMethod.isAnnotationPresent(MyEntry.class)) {	//判断如果set方法有注解@MyEntry
+    
+    			MyEntry me = setMethod.getAnnotation(MyEntry.class);	//获取set方法上的@MyEntry注解以及其中的值
+    
+    			String key = me.key();
+    			String value = me.value();
+    
+                //注入属性
+    			setName.invoke(zhangSan, key);
+    			setPassword.invoke(zhangSan, value);
+    			
+    			System.out.println(zhangSan);
+    		}
+    	}
+    	
+打印结果为：  
+
+    User [name=张三, password=zhangsan]
+    User [name=李四, password=lisi]
+
+# 4. 反射机制的深入应用
+## 4.1 反射调用类中的方法
+## 4.2 反射调用getter和setter方法
+## 4.3 反射操作属性
+## 4.4 反射操作数组
+
+# 5. 代理模式
+## 5.1 静态代理
++
+## 5.2 动态代理
