@@ -305,8 +305,11 @@ Field类中有set(Object obj, Object value)方法和setAccessible(boolean flag)�
     name: LiHua
     Person(age=20, name=LiHua)
 
+## 3.6 反射操作数组
 
-## 3.6 取得全部注解
+
+
+## 3.7 取得全部注解
 这是比较重要的一部分，因为在Java框架中有很大一部分的配置都使用到了注解进行配置。
 先新建一个注解MyEntry.java，其中有两个值key 和 value
 
@@ -417,11 +420,6 @@ Field类中有set(Object obj, Object value)方法和setAccessible(boolean flag)�
     User [name=张三, password=zhangsan]
     User [name=李四, password=lisi]
 
-# 4. 反射机制的深入应用
-## 4.1 反射调用类中的方法
-## 4.2 反射调用getter和setter方法
-## 4.3 反射操作属性
-## 4.4 反射操作数组
 
 # 5. 代理模式
 ## 5.1 静态代理
