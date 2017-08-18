@@ -423,5 +423,5 @@ Field类中有set(Object obj, Object value)方法和setAccessible(boolean flag)�
 
 # 5. 代理模式
 ## 5.1 静态代理
-+
+代理模式是一个很常见的设计模式，
 ## 5.2 动态代理
